@@ -24,11 +24,21 @@ async def handle_tool_call(
             raise ValueError("task is required")
 
         oa, an, bu = resolve_mcp_api_keys()
+        raw_idle = arguments.get("idle_timeout_seconds")
+        idle_timeout_seconds: int | None
+        if raw_idle is None:
+            idle_timeout_seconds = None
+        else:
+            if not isinstance(raw_idle, int):
+                raise ValueError("idle_timeout_seconds must be an integer (seconds)")
+            idle_timeout_seconds = raw_idle
+
         st = await registry.create_session(
             task=task,
             max_steps=arguments.get("max_steps"),
             bu_profile_id=arguments.get("bu_profile_id"),
             country_code=arguments.get("country_code"),
+            idle_timeout_seconds=idle_timeout_seconds,
             openai_api_key=oa,
             anthropic_api_key=an,
             browser_use_api_key=bu,
@@ -43,6 +53,7 @@ async def handle_tool_call(
         st = await registry.get(sid)
         if st is None or st.closed:
             raise ValueError("session not found or closed")
+        registry.touch_idle_activity(st)
         inc_shot = bool(arguments.get("include_screenshot", False))
         raw_steps = arguments.get("include_steps")
         if raw_steps is None:
@@ -62,6 +73,7 @@ async def handle_tool_call(
         st = await registry.get(sid)
         if st is None or st.closed:
             raise ValueError("session not found or closed")
+        registry.touch_idle_activity(st)
         async with st.lock:
             if st.is_running():
                 raise ValueError("session is busy (agent still running); poll session_status and retry")

@@ -16,6 +16,9 @@ class _FakeRegistry:
     def __init__(self) -> None:
         self.snapshot_kwargs: dict[str, Any] | None = None
 
+    def touch_idle_activity(self, _state: object) -> None:
+        return None
+
     async def get(self, session_id: str) -> object | None:
         if session_id == "s1":
             return SimpleNamespace(closed=False)

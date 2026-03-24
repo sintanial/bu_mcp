@@ -21,7 +21,9 @@ def list_tools() -> list[types.Tool]:
                 "interactive browsing; prefer lighter APIs, scripts, or other integrations when they are enough. "
                 "If bu_profile_id is set, the browser runs on Browser Use Cloud with that cloud profile; "
                 "if omitted, the browser runs locally with a persistent local profile directory on disk. "
-                "Use country_code when locale or phone formats matter. Response includes session_id and live_url — "
+                "Use country_code when locale or phone formats matter. Optional idle_timeout_seconds (default 900): "
+                "after the agent stops, the session closes automatically if no session_status or session_supplement "
+                "is received for that long. Response includes session_id and live_url — "
                 "poll session_status with that session_id to track progress; use session_supplement when output "
                 "(or steps) shows that user input is needed. Keys are not tool args (see server instructions)."
             ),
@@ -41,6 +43,15 @@ def list_tools() -> list[types.Tool]:
                     "country_code": {
                         "type": "string",
                         "description": "Optional country code (e.g. RU, DE) for locale / proxy context (cloud).",
+                    },
+                    "idle_timeout_seconds": {
+                        "type": "integer",
+                        "description": (
+                            "Optional. After the agent stops, close the browser session automatically if no further "
+                            "session_status or session_supplement calls arrive for this many seconds (default 900 = 15 minutes). "
+                            "While the agent is running, this timer does not apply. Server default can be set via "
+                            "BU_MCP_DEFAULT_IDLE_TIMEOUT_SECONDS."
+                        ),
                     },
                 },
                 "required": ["task"],

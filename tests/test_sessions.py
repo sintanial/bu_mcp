@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -13,6 +13,7 @@ from bu_mcp.sessions import (
     history_to_steps,
     last_screenshot_b64,
     progress_output,
+    resolve_idle_timeout_seconds,
 )
 
 
@@ -29,6 +30,22 @@ def test_clamp_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_default_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BU_MCP_DEFAULT_MAX_STEPS", "25")
     assert clamp_max_steps(None) == 25
+
+
+# --- resolve_idle_timeout_seconds ---
+
+
+def test_idle_timeout_default_and_clamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BU_MCP_DEFAULT_IDLE_TIMEOUT_SECONDS", raising=False)
+    assert resolve_idle_timeout_seconds(None) == 900
+    assert resolve_idle_timeout_seconds(120) == 120
+    assert resolve_idle_timeout_seconds(1) == 1
+    assert resolve_idle_timeout_seconds(9999999) == 604800
+
+
+def test_idle_timeout_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BU_MCP_DEFAULT_IDLE_TIMEOUT_SECONDS", "600")
+    assert resolve_idle_timeout_seconds(None) == 600
 
 
 # --- history_to_steps, last_screenshot_b64, progress_output ---
@@ -253,3 +270,49 @@ async def test_snapshot_closed_raises():
     state.closed = True
     with pytest.raises(RuntimeError, match="session is closed"):
         await reg.snapshot(state, include_screenshot=False, include_steps_raw=None)
+
+
+@pytest.mark.asyncio
+async def test_idle_loop_closes_session_after_timeout():
+    reg = SessionRegistry()
+    browser = MagicMock()
+    browser.kill = AsyncMock()
+    sid = "idle-test-sid"
+    state = BrowserMcpSession(
+        id=sid,
+        browser_session=browser,
+        live_url="ws://test",
+        idle_timeout_seconds=1,
+    )
+    async with reg._lock:
+        reg._sessions[sid] = state
+
+    await reg._session_idle_loop(sid)
+
+    async with reg._lock:
+        assert sid not in reg._sessions
+    browser.kill.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_touch_idle_activity_extends_deadline_when_agent_idle():
+    reg = SessionRegistry()
+    state = _fake_session()
+    state.idle_timeout_seconds = 60
+    state.runner_task = None
+    state._idle_deadline = 0.0
+    reg.touch_idle_activity(state)
+    assert state._idle_deadline is not None and state._idle_deadline > 0.0
+
+
+@pytest.mark.asyncio
+async def test_touch_idle_activity_noop_while_running():
+    reg = SessionRegistry()
+    state = _fake_session()
+    state.idle_timeout_seconds = 60
+    t = MagicMock()
+    t.done = MagicMock(return_value=False)
+    state.runner_task = t
+    state._idle_deadline = 123.0
+    reg.touch_idle_activity(state)
+    assert state._idle_deadline == 123.0

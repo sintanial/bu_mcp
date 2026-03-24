@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -51,6 +52,13 @@ def clamp_max_steps(raw: int | None) -> int:
     default = int(os.getenv("BU_MCP_DEFAULT_MAX_STEPS", "100"))
     v = default if raw is None else int(raw)
     return max(1, min(v, 500))
+
+
+def resolve_idle_timeout_seconds(raw: int | None) -> int:
+    """Seconds of MCP inactivity after the agent stops before auto-closing the browser session."""
+    default = int(os.getenv("BU_MCP_DEFAULT_IDLE_TIMEOUT_SECONDS", "900"))
+    v = default if raw is None else int(raw)
+    return max(1, min(v, 604800))
 
 
 def progress_output(history: AgentHistoryList | None) -> str | None:
@@ -117,6 +125,9 @@ class BrowserMcpSession:
     last_error: str | None = None
     finished_at: str | None = None
     closed: bool = False
+    idle_timeout_seconds: int = 900
+    _idle_deadline: float | None = None
+    idle_task: asyncio.Task[None] | None = None
 
     async def run_agent(self, task: str, max_steps: int) -> None:
         agent: Agent[Any, Any] | None = None
@@ -153,6 +164,32 @@ class SessionRegistry:
         self._sessions: dict[str, BrowserMcpSession] = {}
         self._lock = asyncio.Lock()
 
+    def touch_idle_activity(self, state: BrowserMcpSession) -> None:
+        """Reset idle auto-close deadline after the agent is idle (MCP command received)."""
+        if state.closed or state.is_running():
+            return
+        state._idle_deadline = time.monotonic() + float(state.idle_timeout_seconds)
+
+    async def _session_idle_loop(self, session_id: str) -> None:
+        try:
+            while True:
+                state = await self.get(session_id)
+                if state is None or state.closed:
+                    return
+                if state.is_running():
+                    state._idle_deadline = None
+                    await asyncio.sleep(0.25)
+                    continue
+                if state._idle_deadline is None:
+                    state._idle_deadline = time.monotonic() + float(state.idle_timeout_seconds)
+                remaining = state._idle_deadline - time.monotonic()
+                if remaining <= 0:
+                    await self.close_session(session_id)
+                    return
+                await asyncio.sleep(min(max(remaining, 0.01), 1.0))
+        except asyncio.CancelledError:
+            return
+
     async def create_session(
         self,
         *,
@@ -160,6 +197,7 @@ class SessionRegistry:
         max_steps: int | None,
         bu_profile_id: str | None,
         country_code: str | None,
+        idle_timeout_seconds: int | None = None,
         openai_api_key: str | None = None,
         anthropic_api_key: str | None = None,
         browser_use_api_key: str | None = None,
@@ -175,6 +213,7 @@ class SessionRegistry:
 
         prepared = _prepare_task(task, country_code)
         ms = clamp_max_steps(max_steps)
+        idle_sec = resolve_idle_timeout_seconds(idle_timeout_seconds)
 
         oa = (openai_api_key or "").strip() or None
         an = (anthropic_api_key or "").strip() or None
@@ -208,11 +247,13 @@ class SessionRegistry:
             openai_api_key=oa,
             anthropic_api_key=an,
             browser_use_api_key=bu,
+            idle_timeout_seconds=idle_sec,
         )
         async with self._lock:
             self._sessions[sid] = state
 
         state.runner_task = asyncio.create_task(state.run_agent(prepared, ms))
+        state.idle_task = asyncio.create_task(self._session_idle_loop(sid))
         return state
 
     async def get(self, session_id: str) -> BrowserMcpSession | None:
@@ -228,6 +269,13 @@ class SessionRegistry:
         if state is None:
             return False
         state.closed = True
+        ct = asyncio.current_task()
+        if state.idle_task and state.idle_task is not ct and not state.idle_task.done():
+            state.idle_task.cancel()
+            try:
+                await state.idle_task
+            except asyncio.CancelledError:
+                pass
         if state.runner_task and not state.runner_task.done():
             state.runner_task.cancel()
             try:

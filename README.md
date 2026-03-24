@@ -10,7 +10,7 @@ MCP server on top of [browser-use](https://github.com/browser-use/browser-use): 
 
 | Tool | Role |
 |------|------|
-| `session_start` | Start + task → `session_id`, `live_url`. Optional **`bu_profile_id`** (cloud) → Browser Use API key required; without it → local headless Chromium with persistent profile (`~/.bu_mcp/local-profile` or `BU_MCP_LOCAL_USER_DATA_DIR`) |
+| `session_start` | Start + task → `session_id`, `live_url`. Optional **`bu_profile_id`** (cloud) → Browser Use API key required; without it → local headless Chromium with persistent profile (`~/.bu_mcp/local-profile` or `BU_MCP_LOCAL_USER_DATA_DIR`). Optional **`idle_timeout_seconds`** (default 900): auto-close the browser after the agent stops if no `session_status` / `session_supplement` for that long |
 | `session_status` | Poll: status, output, optional steps / screenshot |
 | `session_supplement` | Same session + new task text |
 | `session_close` | End the session when work is done |

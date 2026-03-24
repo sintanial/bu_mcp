@@ -59,6 +59,7 @@ There is **no** tool to list cloud profiles — pass the cloud profile id only i
 | `max_steps` | integer | no | Max agent steps; default from **`BU_MCP_DEFAULT_MAX_STEPS`** (default 100), max 500. |
 | `bu_profile_id` | string (UUID) | no | Browser Use **cloud** profile. If set — **cloud only**, Browser Use key **required**. If omitted — **local** browser with local profile. |
 | `country_code` | string | no | Country code (e.g. `RU`, `DE`) for locale/proxy in cloud. |
+| `idle_timeout_seconds` | integer | no | After the **agent stops**, auto-close the browser session if no **`session_status`** or **`session_supplement`** arrives for this many seconds. Default **900** (15 minutes); override per start. While the agent is **running**, the idle timer does not count down. Default for the server process: **`BU_MCP_DEFAULT_IDLE_TIMEOUT_SECONDS`** (falls back to **900**). |
 
 LLM and Browser Use keys are not tool arguments — see **§3** above.
 
