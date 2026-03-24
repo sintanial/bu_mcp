@@ -1,0 +1,34 @@
+# bu_mcp in Docker: Chromium + MCP over Streamable HTTP.
+#
+# Keys: create `.env` in this directory (see `.env.example`) or export variables on the host.
+# Compose reads `.env` for ${VAR} substitution below.
+#
+# Run (HTTP on host port 8765 → container /mcp):
+#   docker compose up -d bu-mcp
+#
+# Build:
+#   docker compose build
+
+services:
+  bu-mcp:
+    build: .
+    image: bu-mcp:latest
+    ports:
+      - "${BU_MCP_PORT:-8765}:8765"
+    shm_size: "2gb"
+    environment:
+      BU_MCP_HOST: "0.0.0.0"
+      BU_MCP_PORT: "8765"
+      BU_MCP_HTTP_PATH: ${BU_MCP_HTTP_PATH:-/mcp}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      BROWSER_USE_API_KEY: ${BROWSER_USE_API_KEY:-}
+      BU_MCP_LOCAL_USER_DATA_DIR: /data/bu-mcp-profile
+      BU_MCP_DEFAULT_MAX_STEPS: ${BU_MCP_DEFAULT_MAX_STEPS:-100}
+      BROWSER_USE_SETUP_LOGGING: "false"
+      IN_DOCKER: "true"
+    volumes:
+      - bu_mcp_profile:/data/bu-mcp-profile
+
+volumes:
+  bu_mcp_profile:

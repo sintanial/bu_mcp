@@ -8,8 +8,8 @@ from typing import Any
 
 import mcp.types as types
 
-from browser_mcp.auth_keys import resolve_mcp_api_keys
-from browser_mcp.sessions import SessionRegistry, clamp_max_steps
+from bu_mcp.auth_keys import resolve_mcp_api_keys
+from bu_mcp.sessions import SessionRegistry, clamp_max_steps
 
 
 async def handle_tool_call(

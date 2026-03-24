@@ -1,25 +1,27 @@
-# browser-mcp — tool specification (v1)
+# bu_mcp — tools (v1)
 
-API surface for browser-use integration: sessions, monitoring, human-in-the-loop. There is **no** separate tool to list cloud profiles — the cloud profile id is passed only in **`session_start`** as **`bu_profile_id`** when cloud is needed.
+Normative contract for MCP **tools** on the **bu_mcp** Streamable HTTP server (browser-use under the hood). For agent-oriented entry points see **`AGENTS.md`**.
+
+There is **no** tool to list cloud profiles — pass the cloud profile id only in **`session_start`** as **`bu_profile_id`** when cloud is needed.
 
 ## General rules
 
-1. **Session id** — all “live” automation uses only **`session_id`**. There are no separate `run_id`, split `create` + `start`, or `continue` / `cancel` tools.
+1. **Session id** — all live automation uses only **`session_id`**. There are no separate `run_id`, split `create` + `start`, or `continue` / `cancel` tools.
 
 2. **Browser mode (`session_start`)** — optional **`bu_profile_id`**:
-   - **Set** — session runs on **Browser Use Cloud** with that cloud profile; a **Browser Use API key is required** (header / `_meta` / `BROWSER_USE_API_KEY`); start fails without it.
-   - **Omitted** — **local** (headless) browser with a **persistent on-disk profile** (cookies and storage persist across runs under `~/.browser-mcp/local-profile` by default, or `BROWSER_MCP_LOCAL_USER_DATA_DIR`).
+   - **Set** — session runs on **Browser Use Cloud** with that profile; a **Browser Use API key** is required (header / `_meta` / `BROWSER_USE_API_KEY`); start fails without it.
+   - **Omitted** — **local** (headless) browser with a **persistent on-disk profile** (default `~/.bu_mcp/local-profile`, or **`BU_MCP_LOCAL_USER_DATA_DIR`**).
 
 3. **Secrets (not in tool arguments)** — LLM and Browser Use keys are **not** passed as tool fields. Use:
    - **HTTP (streamable MCP):** request headers:
      - `X-Browser-Use-API-Key` — required when **`bu_profile_id`** is set (cloud);
      - `X-OpenAI-Api-Key` / `X-Anthropic-Api-Key` — agent models.
-   - **stdio:** the same values in **`_meta`** on **`tools/call` `params`** (lowercase hyphenated names: `x-browser-use-api-key`, `x-openai-api-key`, `x-anthropic-api-key`).
+   - **Optional:** the same values in **`_meta`** on **`tools/call` `params`** (lowercase hyphenated names: `x-browser-use-api-key`, `x-openai-api-key`, `x-anthropic-api-key`).
    - **Fallback:** environment variables `BROWSER_USE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` on the MCP process.
 
    Priority: HTTP headers → `_meta` → env.
 
-   **For agents (MCP):** a short summary is in **`instructions`** (`initialize`) and resource **`browser-mcp://authentication`** (`resources/read`).
+   **Short copy for MCP clients:** `initialize.instructions` and resource **`bu-mcp://authentication`** (`resources/read`).
 
 4. **`live_url`** — required on successful **`session_start`** and **`session_supplement`**. For a closed or missing session — error or implementation-defined contract.
 
@@ -54,7 +56,7 @@ API surface for browser-use integration: sessions, monitoring, human-in-the-loop
 | Field | Type | Required | Description |
 |------|------|----------|-------------|
 | `task` | string | yes | Goal for the agent. |
-| `max_steps` | integer | no | Max agent steps; default is implementation-defined. |
+| `max_steps` | integer | no | Max agent steps; default from **`BU_MCP_DEFAULT_MAX_STEPS`** (default 100), max 500. |
 | `bu_profile_id` | string (UUID) | no | Browser Use **cloud** profile. If set — **cloud only**, Browser Use key **required**. If omitted — **local** browser with local profile. |
 | `country_code` | string | no | Country code (e.g. `RU`, `DE`) for locale/proxy in cloud. |
 
@@ -79,7 +81,7 @@ LLM and Browser Use keys are not tool arguments — see **§3** above.
 
 > Poll a browser session by `session_id`. Returns a fixed snapshot: `status`, `output`, `finished_at`, `is_success`. Structured fields like “waiting for phone” are not provided — infer what the agent needs from `output` (and from `steps` if you requested them). Optional request flags: `include_screenshot`; `include_steps` — omit or `0` for no steps, `-1` for full history, `N>0` for the last N steps (returned as `steps` in the response).
 >
-> Poll every few seconds while the task is in progress (`status` / `output` tell you when it is done or stuck). If `output` implies missing user data, call `session_supplement` with the same `session_id` and a `task` string (e.g. phone number, OTP, or follow-up instruction). When `session_status` shows the agent considers the overall task **fully finished** (per `status`, `output`, `finished_at`, `is_success`), stop polling and call `session_close` for that `session_id`. Do not call `session_close` if more user input or follow-up work may still be needed. After each call, briefly summarize progress for the user in plain language — not raw JSON only.
+> Poll every few seconds while the task is in progress (`status` / `output` tell you when it is done or stuck). If `output` implies missing user data, call `session_supplement` with the same `session_id` and a `task` string (e.g. phone number, OTP, or follow-up instruction). When `session_status` shows the agent considers the overall task **fully finished** (per `status`, `output`, `finished_at`, `is_success`), stop polling and call `session_close` for that `session_id`. Do not call `session_close` if more user input or follow-up work may still be needed. If unsure, poll `session_status` once more before closing. After each call, briefly summarize progress for the user in plain language — not raw JSON only.
 
 **Input:**
 
@@ -101,7 +103,7 @@ LLM and Browser Use keys are not tool arguments — see **§3** above.
 **Optional (on request):**
 
 | Field | Condition |
-|------|-------------|
+|------|----------|
 | `steps` | If `include_steps` is `-1` or `> 0` — step array (structure is implementation-defined). |
 | `screenshot` | If `include_screenshot === true`. |
 
@@ -172,3 +174,15 @@ LLM and Browser Use keys are not tool arguments — see **§3** above.
 2. Loop `session_status` until completion by `status` / `output` / `finished_at`.
 3. If `output` (and optionally `steps`) show missing user data → `session_supplement` with the same `session_id` and **`task`**.
 4. When `session_status` shows the agent has **fully** finished → `session_close` with the same `session_id`.
+
+---
+
+## Server configuration (environment)
+
+| Variable | Role |
+|----------|------|
+| `BU_MCP_HOST` / `BU_MCP_PORT` / `BU_MCP_HTTP_PATH` | HTTP bind and MCP path (default `/mcp`). |
+| `BU_MCP_LOCAL_USER_DATA_DIR` | Local Chromium profile directory. |
+| `BU_MCP_DEFAULT_MAX_STEPS` | Default `max_steps` cap helper (1–500). |
+| `BU_MCP_LOG_LEVEL` | Uvicorn log level. |
+| `BU_MCP_STATELESS_HTTP` / `BU_MCP_JSON_RESPONSE` | MCP Streamable HTTP transport toggles. |

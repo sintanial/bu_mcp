@@ -64,7 +64,7 @@ def _first(*vals: str | None) -> str | None:
 
 
 def resolve_mcp_api_keys() -> tuple[str | None, str | None, str | None]:
-    """OpenAI, Anthropic, Browser Use keys: HTTP headers (streamable HTTP) or params._meta (stdio), then env."""
+    """OpenAI, Anthropic, Browser Use keys: HTTP headers, optional tools/call params._meta, then env."""
     env_oa = _strip(os.getenv("OPENAI_API_KEY"))
     env_an = _strip(os.getenv("ANTHROPIC_API_KEY"))
     env_bu = _strip(os.getenv("BROWSER_USE_API_KEY"))

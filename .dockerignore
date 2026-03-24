@@ -1,0 +1,12 @@
+.venv/
+.git/
+.pytest_cache/
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Not needed inside runtime image
+tests/

@@ -6,7 +6,6 @@ import logging
 
 import httpx
 
-from browser_mcp.constants import BROWSER_USE_CLOUD_API_BASE
 from browser_use.browser.cloud.views import (
     CloudBrowserAuthError,
     CloudBrowserError,
@@ -15,6 +14,9 @@ from browser_use.browser.cloud.views import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Public Browser Use Cloud API host (not a secret).
+BROWSER_USE_CLOUD_API_BASE = "https://api.browser-use.com"
 
 
 async def create_browser(api_key: str, request: CreateBrowserRequest) -> CloudBrowserResponse:

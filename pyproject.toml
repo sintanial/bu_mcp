@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "browser-mcp"
+name = "bu-mcp"
 version = "0.1.0"
 description = "MCP server for browser-use: session_start (local or cloud via bu_profile_id), status, supplement, close"
 readme = "README.md"
@@ -16,7 +16,18 @@ dependencies = [
 ]
 
 [project.scripts]
-browser-mcp = "browser_mcp.__main__:main"
+bu-mcp = "bu_mcp.__main__:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+]
 
 [tool.hatch.build.targets.wheel]
-packages = ["browser_mcp"]
+packages = ["bu_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

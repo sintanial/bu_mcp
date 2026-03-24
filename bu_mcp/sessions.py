@@ -13,9 +13,9 @@ from browser_use import Agent, BrowserSession
 from browser_use.agent.views import AgentHistoryList
 from browser_use.browser.cloud.views import CreateBrowserRequest
 
-from browser_mcp.cloud import create_browser as cloud_create_browser, stop_browser as cloud_stop_browser
-from browser_mcp.llm_factory import build_llm
-from browser_mcp.local_profile import resolve_local_user_data_dir
+from bu_mcp.cloud import create_browser as cloud_create_browser, stop_browser as cloud_stop_browser
+from bu_mcp.llm_factory import build_llm
+from bu_mcp.local_profile import resolve_local_user_data_dir
 
 
 def _utc_now_iso() -> str:
@@ -48,7 +48,7 @@ def _normalize_proxy_country(country_code: str | None) -> str | None:
 
 
 def clamp_max_steps(raw: int | None) -> int:
-    default = int(os.getenv("BROWSER_MCP_DEFAULT_MAX_STEPS", "100"))
+    default = int(os.getenv("BU_MCP_DEFAULT_MAX_STEPS", "100"))
     v = default if raw is None else int(raw)
     return max(1, min(v, 500))
 

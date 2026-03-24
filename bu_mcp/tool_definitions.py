@@ -1,4 +1,4 @@
-"""MCP Tool descriptors (inputSchema, descriptions). Contract: docs/mcp-spec.md."""
+"""MCP Tool descriptors (inputSchema, descriptions). Contract: TOOLS.md."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def list_tools() -> list[types.Tool]:
                         "description": (
                             "Optional. Browser Use **cloud** profile UUID. If set, session runs in the cloud and "
                             "X-Browser-Use-API-Key (or env BROWSER_USE_API_KEY) is required. If omitted, session "
-                            "runs locally with a persistent local profile (see server docs / BROWSER_MCP_LOCAL_USER_DATA_DIR)."
+                            "runs locally with a persistent local profile (see TOOLS.md / BU_MCP_LOCAL_USER_DATA_DIR)."
                         ),
                     },
                     "country_code": {
